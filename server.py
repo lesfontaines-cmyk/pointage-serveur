@@ -71,6 +71,11 @@ def cloture_selenium(email, password, url, plages):
 
     try:
         # ── 1. Ouvrir la page ────────────────────────────────────────────────
+        # Injecter mois et année courants dans l'URL
+        import re as _re
+        today_d = datetime.date.today()
+        url = _re.sub(r'mois=\d+', f'mois={today_d.month:02d}', url)
+        url = _re.sub(r'annee=\d+', f'annee={today_d.year}', url)
         driver.get(url)
         time.sleep(3)
 
