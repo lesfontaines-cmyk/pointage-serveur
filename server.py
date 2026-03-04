@@ -45,10 +45,23 @@ def cloture_selenium(email, password, url, plages):
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
 
-    # Sur Railway : Chromium installé via nixpacks
-    import shutil
-    chromium_path   = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
-    chromedriver_path = shutil.which("chromedriver")
+    # Trouver Chromium et Chromedriver (Railway/Nix ou système)
+    import shutil, glob
+
+    def find_bin(*names):
+        for name in names:
+            p = shutil.which(name)
+            if p:
+                return p
+        # Chercher dans les chemins Nix
+        for name in names:
+            matches = glob.glob(f"/nix/store/*/{name}") + glob.glob(f"/nix/store/*/bin/{name}")
+            if matches:
+                return matches[0]
+        return None
+
+    chromium_path     = find_bin("chromium", "chromium-browser", "google-chrome", "google-chrome-stable")
+    chromedriver_path = find_bin("chromedriver")
 
     try:
         if chromium_path:
@@ -57,7 +70,6 @@ def cloture_selenium(email, password, url, plages):
             service = Service(chromedriver_path)
             driver  = webdriver.Chrome(service=service, options=opts)
         else:
-            # Fallback : webdriver-manager
             from webdriver_manager.chrome import ChromeDriverManager
             service = Service(ChromeDriverManager().install())
             driver  = webdriver.Chrome(service=service, options=opts)
@@ -215,6 +227,28 @@ def cloture_selenium(email, password, url, plages):
 
 
 # ─── ROUTES API ──────────────────────────────────────────────────────────────
+
+@app.route("/debug", methods=["GET"])
+def debug():
+    """Diagnostique Chrome/Chromedriver sur le serveur."""
+    import shutil, glob, os
+    def find_bin(*names):
+        for name in names:
+            p = shutil.which(name)
+            if p: return p
+        for name in names:
+            matches = glob.glob(f"/nix/store/*/{name}") + glob.glob(f"/nix/store/*/bin/{name}")
+            if matches: return matches[0]
+        return None
+
+    return jsonify({
+        "chromium":     find_bin("chromium", "chromium-browser", "google-chrome"),
+        "chromedriver": find_bin("chromedriver"),
+        "PATH":         os.environ.get("PATH", ""),
+        "nix_chromium": glob.glob("/nix/store/*/bin/chromium")[:3],
+        "nix_driver":   glob.glob("/nix/store/*/bin/chromedriver")[:3],
+    })
+
 
 @app.route("/ping", methods=["GET"])
 def ping():
