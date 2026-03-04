@@ -320,10 +320,18 @@ def screenshot():
             "})();"
         )
         time.sleep(1.5)
-        rgpd_still_open = driver.execute_script(
-            "return [...document.querySelectorAll('button,a,span,div,p')]"
-            ".some(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
+        # Inspecter le bouton RGPD en détail
+        rgpd_info = driver.execute_script(
+            "const all=[...document.querySelectorAll('button,a,span,div,p')];"
+            "const matches=all.filter(x=>x.textContent.includes('COMPRIS'));"
+            "return matches.map(x=>({"
+            "  tag:x.tagName,"
+            "  text:JSON.stringify(x.textContent.trim()),"
+            "  html:x.outerHTML.substring(0,200),"
+            "  codes:[...x.textContent].map(c=>c.charCodeAt(0))"
+            "}));"
         )
+        rgpd_still_open = bool(rgpd_info)
         png = driver.get_screenshot_as_base64()
         day_cells = driver.execute_script("""
             const cells = document.querySelectorAll('td, [class*="jour"], [class*="day"]');
@@ -334,7 +342,7 @@ def screenshot():
         """)
         final_url = driver.current_url; title = driver.title
         driver.quit()
-        return jsonify({"title":title,"url":final_url,"screenshot":png,"day_cells":day_cells,"rgpd_open":rgpd_still_open})
+        return jsonify({"title":title,"url":final_url,"screenshot":png,"day_cells":day_cells,"rgpd_open":rgpd_still_open,"rgpd_info":rgpd_info})
     except Exception as e:
         try: driver.quit()
         except: pass
