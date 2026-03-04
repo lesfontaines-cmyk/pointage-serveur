@@ -100,29 +100,26 @@ def cloture_selenium(email, password, url, plages):
                 driver.quit()
                 return False, f"Erreur de connexion : {e}"
 
-        # ── 2b. Fermer popup RGPD (Vue.js) ──────────────────────────────
+        # ── 2b. Fermer popup RGPD ────────────────────────────────────────
         time.sleep(2)
-        # Plusieurs tentatives avec méthodes différentes
-        for _attempt in range(8):
-            closed = driver.execute_script(
-                "const candidates = [...document.querySelectorAll('button,a,span,div,p')];"
-                "const btn = candidates.find(x => x.textContent.trim() === \"J'AI COMPRIS\");"
-                "if (!btn) return false;"
-                "btn.scrollIntoView({block:'center'});"
-                "['mousedown','mouseup','click'].forEach(ev => "
-                "  btn.dispatchEvent(new MouseEvent(ev, {bubbles:true, cancelable:true}))"
-                ");"
-                "return true;"
-            )
-            time.sleep(0.8)
-            # Vérifier si popup disparue
-            still_open = driver.execute_script(
-                "return [...document.querySelectorAll('button,a,span,div,p')]"
-                ".some(x => x.textContent.trim() === \"J'AI COMPRIS\");"
-            )
-            if not still_open:
-                break
-        time.sleep(1)
+        driver.execute_script(
+            # Supprimer directement la popup du DOM + déverrouiller le scroll
+            "(function(){"
+            "  // Trouver et cliquer le bouton Vue"
+            "  const btn=[...document.querySelectorAll('button,a,span,div,p')]"
+            "    .find(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
+            "  if(btn){"
+            "    const vm=btn.__vue__||btn.closest('[data-v-app]')?.__vue_app__;"
+            "    btn.click();"
+          "  }"
+            "  // Forcer suppression overlay"
+            "  document.querySelectorAll('.modal,.modal-backdrop,.overlay,.popup,[class*=modal],[class*=rgpd],[class*=popup]')"
+            "    .forEach(el=>el.remove());"
+            "  document.body.style.overflow='auto';"
+            "  document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
+            "})();"
+        )
+        time.sleep(1.5)
 
 
 
@@ -311,24 +308,18 @@ def screenshot():
                 time.sleep(4)
             except: pass
         # Fermer popup RGPD avant screenshot
-        for _a in range(8):
-            closed = driver.execute_script(
-                "const btn=[...document.querySelectorAll('button,a,span,div,p')]"
-                ".find(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
-                "if(!btn)return false;"
-                "btn.scrollIntoView({block:'center'});"
-                "['mousedown','mouseup','click'].forEach(ev=>"
-                "btn.dispatchEvent(new MouseEvent(ev,{bubbles:true,cancelable:true})));"
-                "return true;"
-            )
-            time.sleep(0.8)
-            still = driver.execute_script(
-                "return [...document.querySelectorAll('button,a,span,div,p')]"
-                ".some(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
-            )
-            if not still: break
-        time.sleep(1)
-
+        driver.execute_script(
+            "(function(){"
+            "  const btn=[...document.querySelectorAll('button,a,span,div,p')]"
+            "    .find(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
+            "  if(btn)btn.click();"
+            "  document.querySelectorAll('.modal,.modal-backdrop,.overlay,.popup,[class*=modal],[class*=rgpd],[class*=popup]')"
+            "    .forEach(el=>el.remove());"
+            "  document.body.style.overflow='auto';"
+            "  document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
+            "})();"
+        )
+        time.sleep(1.5)
         rgpd_still_open = driver.execute_script(
             "return [...document.querySelectorAll('button,a,span,div,p')]"
             ".some(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
