@@ -102,24 +102,20 @@ def cloture_selenium(email, password, url, plages):
 
         # ── 2b. Fermer popup RGPD ────────────────────────────────────────
         time.sleep(2)
-        driver.execute_script(
-            # Supprimer directement la popup du DOM + déverrouiller le scroll
-            "(function(){"
-            "  // Trouver et cliquer le bouton Vue"
-            "  const btn=[...document.querySelectorAll('button,a,span,div,p')]"
-            "    .find(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
-            "  if(btn){"
-            "    const vm=btn.__vue__||btn.closest('[data-v-app]')?.__vue_app__;"
-            "    btn.click();"
-          "  }"
-            "  // Forcer suppression overlay"
-            "  document.querySelectorAll('.modal,.modal-backdrop,.overlay,.popup,[class*=modal],[class*=rgpd],[class*=popup]')"
-            "    .forEach(el=>el.remove());"
-            "  document.body.style.overflow='auto';"
-            "  document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
-            "})();"
-        )
-        time.sleep(1.5)
+        # Supprimer via DOM + attendre que Vue re-rende
+        for _r in range(3):
+            driver.execute_script(
+                "(function(){"
+                "  const all=[...document.querySelectorAll('*')];"
+                "  const btn=all.find(x=>x.textContent.trim().startsWith('J') && x.textContent.includes('AI COMPRIS') && x.children.length===0);"
+                "  if(btn){btn.click();}"
+                "  document.querySelectorAll('.modal,.modal-backdrop,.overlay,[class*=modal],[class*=popup],[class*=rgpd]')"
+                "    .forEach(el=>el.remove());"
+                "  document.body.style.overflow='auto';"
+                "  document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
+                "})();"
+            )
+            time.sleep(1)
 
 
 
