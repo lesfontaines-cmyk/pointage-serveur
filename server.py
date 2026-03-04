@@ -272,14 +272,20 @@ def screenshot():
         url = _re.sub(r'annee=\d+', f'annee={today_d.year}', url)
         driver.get(url); time.sleep(3)
         cur = driver.current_url.lower()
-        if "login" in cur or "account" in cur or "connect" in cur:
+        if "login" in cur or "account" in cur or "connect" in cur or "auth" in cur:
             try:
-                el = driver.find_element("css selector","input[type='email'], input[name='Email']")
-                el.clear(); el.send_keys(email)
-                pw = driver.find_element("css selector","input[type='password']")
-                pw.clear(); pw.send_keys(password)
-                driver.find_element("css selector","button[type='submit']").click()
-                time.sleep(3)
+                inputs = driver.find_elements("css selector","input")
+                email_el = next((i for i in inputs if i.get_attribute("placeholder") in ("Email","email","Login","login") or i.get_attribute("type")=="email" or i.get_attribute("name") in ("Email","email")), None)
+                pwd_el   = next((i for i in inputs if i.get_attribute("type")=="password"), None)
+                if email_el: email_el.clear(); email_el.send_keys(email)
+                if pwd_el:   pwd_el.clear();   pwd_el.send_keys(password)
+                btns = driver.find_elements("css selector","button, input[type='submit']")
+                btn  = next((b for b in btns if b.text.strip().upper() in ("SE CONNECTER","CONNEXION","CONNECT","LOGIN","VALIDER") or b.get_attribute("type")=="submit"), None)
+                if btn: btn.click()
+                elif pwd_el:
+                    from selenium.webdriver.common.keys import Keys
+                    pwd_el.send_keys(Keys.RETURN)
+                time.sleep(4)
             except: pass
         png = driver.get_screenshot_as_base64()
         day_cells = driver.execute_script("""
