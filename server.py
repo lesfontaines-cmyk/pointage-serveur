@@ -100,29 +100,42 @@ def cloture_selenium(email, password, url, plages):
                 driver.quit()
                 return False, f"Erreur de connexion : {e}"
 
-        # ── 3. Cliquer le jour courant ───────────────────────────────────────
-        today = datetime.date.today().day
-        month_day = datetime.date.today().strftime("%m-%d")
+        # ── 2b. Fermer popup RGPD si présente ─────────────────────────────
+        try:
+            driver.execute_script(
+                "const b=[...document.querySelectorAll('button,a')]"
+                ".find(x=>x.textContent.includes('COMPRIS')||x.textContent.includes('Accepter'));"
+                "if(b)b.click();"
+            )
+            time.sleep(1)
+        except Exception:
+            pass
 
-        found = driver.execute_script(f"""
-            const today = {today};
-            const cells = document.querySelectorAll('td, [class*="jour"], [class*="day"]');
-            for (const c of cells) {{
-                const txt = c.textContent.trim();
-                if ((txt === String(today) || txt === String(today).padStart(2,'0')) && c.onclick) {{
-                    c.click(); return 'clicked';
-                }}
-            }}
-            for (const c of document.querySelectorAll('[data-date]')) {{
-                const d = c.getAttribute('data-date') || '';
-                if (d.endsWith('{month_day}')) {{ c.click(); return 'clicked-data'; }}
-            }}
-            return 'not-found';
-        """)
+        # ── 3. Cliquer le jour courant (format Ecollaboratrice: "Mercredi 04/03") ──
+        today_str = datetime.date.today().strftime("%d/%m")   # ex: "04/03"
 
-        if found == "not-found":
+        found = driver.execute_script(
+            f"const ts='{today_str}';"
+            "const els=document.querySelectorAll('td,tr,div,span,a,li');"
+            "for(const el of els){"
+            "  const txt=el.textContent.trim();"
+            "  if(txt.includes(ts)||txt.startsWith(ts)){"
+            "    let t=el;"
+            "    for(let i=0;i<4;i++){"
+            "      if(t.tagName==='TR'||t.onclick||t.getAttribute('ng-click')){"
+            "        t.click();return 'ok:'+txt.substring(0,20);"
+            "      }"
+            "      if(t.parentElement)t=t.parentElement;else break;"
+            "    }"
+            "    el.click();return 'ok2:'+txt.substring(0,20);"
+            "  }"
+            "}"
+            "return 'not-found';"
+        )
+
+        if isinstance(found, str) and found == 'not-found':
             driver.quit()
-            return False, "Cellule du jour introuvable. Vérifiez l'URL (bon mois ?)."
+            return False, f"Cellule du {today_str} introuvable dans le tableau."
 
         time.sleep(2)
 
