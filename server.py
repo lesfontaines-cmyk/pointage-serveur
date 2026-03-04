@@ -101,21 +101,26 @@ def cloture_selenium(email, password, url, plages):
                 return False, f"Erreur de connexion : {e}"
 
         # ── 2b. Fermer popup RGPD ────────────────────────────────────────
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
         time.sleep(2)
-        # Supprimer via DOM + attendre que Vue re-rende
-        for _r in range(3):
-            driver.execute_script(
-                "(function(){"
-                "  const all=[...document.querySelectorAll('*')];"
-                "  const btn=all.find(x=>x.textContent.trim().startsWith('J') && x.textContent.includes('AI COMPRIS') && x.children.length===0);"
-                "  if(btn){btn.click();}"
-                "  document.querySelectorAll('.modal,.modal-backdrop,.overlay,[class*=modal],[class*=popup],[class*=rgpd]')"
-                "    .forEach(el=>el.remove());"
-                "  document.body.style.overflow='auto';"
-                "  document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
-                "})();"
+        try:
+            btn = WebDriverWait(driver, 8).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[contains(text(),'AI COMPRIS')]"))
             )
-            time.sleep(1)
+            driver.execute_script('arguments[0].scrollIntoView(true);', btn)
+            driver.execute_script('arguments[0].click();', btn)
+            time.sleep(2)
+        except Exception:
+            # Fallback : supprimer overlay DOM
+            driver.execute_script(
+                "document.querySelectorAll('.modal,.modal-backdrop,[class*=modal],[class*=overlay],[class*=popup],[class*=rgpd]')"
+                ".forEach(el=>el.remove());"
+                "document.body.style.overflow='auto';"
+                "document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
+            )
+            time.sleep(1.5)
 
 
 
