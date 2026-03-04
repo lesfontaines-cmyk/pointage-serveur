@@ -101,15 +101,28 @@ def cloture_selenium(email, password, url, plages):
                 return False, f"Erreur de connexion : {e}"
 
         # ── 2b. Fermer popup RGPD si présente ─────────────────────────────
+        for attempt in range(5):
+            time.sleep(1)
+            try:
+                btns = driver.find_elements("xpath",
+                    "//*[contains(text(),'AI COMPRIS') or contains(text(),'COMPRIS') or contains(text(),'Accepter')]")
+                if btns:
+                    btns[0].click()
+                    time.sleep(1)
+                    break
+            except Exception:
+                pass
+        # Fallback JS
         try:
             driver.execute_script(
-                "const b=[...document.querySelectorAll('button,a')]"
-                ".find(x=>x.textContent.includes('COMPRIS')||x.textContent.includes('Accepter'));"
-                "if(b)b.click();"
+                "const b=[...document.querySelectorAll('button,a,span')]"
+                ".find(x=>x.textContent.trim().includes('COMPRIS'));"
+                "if(b){b.dispatchEvent(new MouseEvent('click',{bubbles:true}));}"
             )
             time.sleep(1)
         except Exception:
             pass
+
 
         # ── 3. Cliquer le jour courant (format Ecollaboratrice: "Mercredi 04/03") ──
         today_str = datetime.date.today().strftime("%d/%m")   # ex: "04/03"
@@ -300,6 +313,19 @@ def screenshot():
                     pwd_el.send_keys(Keys.RETURN)
                 time.sleep(4)
             except: pass
+        # Fermer popup RGPD avant screenshot
+        for attempt in range(5):
+            time.sleep(1)
+            try:
+                btns = driver.find_elements("xpath",
+                    "//*[contains(text(),'AI COMPRIS') or contains(text(),'COMPRIS') or contains(text(),'Accepter')]")
+                if btns:
+                    btns[0].click()
+                    time.sleep(1)
+                    break
+            except Exception:
+                pass
+
         png = driver.get_screenshot_as_base64()
         day_cells = driver.execute_script("""
             const cells = document.querySelectorAll('td, [class*="jour"], [class*="day"]');
