@@ -248,6 +248,56 @@ def debug():
     })
 
 
+@app.route("/screenshot", methods=["POST"])
+def screenshot():
+    import base64, re as _re
+    data     = request.get_json(force=True)
+    email    = data.get("email","").strip()
+    password = data.get("password","").strip()
+    url      = data.get("url","").strip()
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service
+    opts = Options()
+    opts.add_argument("--headless=new"); opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage"); opts.add_argument("--disable-gpu")
+    opts.add_argument("--window-size=1280,900")
+    cp = os.environ.get("CHROME_BIN") or shutil.which("chromium") or shutil.which("chromium-browser")
+    dp = os.environ.get("CHROMEDRIVER_PATH") or shutil.which("chromedriver")
+    if cp: opts.binary_location = cp
+    driver = webdriver.Chrome(service=Service(dp), options=opts)
+    try:
+        today_d = datetime.date.today()
+        url = _re.sub(r'mois=\d+', f'mois={today_d.month:02d}', url)
+        url = _re.sub(r'annee=\d+', f'annee={today_d.year}', url)
+        driver.get(url); time.sleep(3)
+        cur = driver.current_url.lower()
+        if "login" in cur or "account" in cur or "connect" in cur:
+            try:
+                el = driver.find_element("css selector","input[type='email'], input[name='Email']")
+                el.clear(); el.send_keys(email)
+                pw = driver.find_element("css selector","input[type='password']")
+                pw.clear(); pw.send_keys(password)
+                driver.find_element("css selector","button[type='submit']").click()
+                time.sleep(3)
+            except: pass
+        png = driver.get_screenshot_as_base64()
+        day_cells = driver.execute_script("""
+            const cells = document.querySelectorAll('td, [class*="jour"], [class*="day"]');
+            return Array.from(cells).slice(0,30).map(c => ({
+                tag: c.tagName, text: c.textContent.trim().substring(0,30),
+                hasOnclick: !!c.onclick, cls: c.className.substring(0,50)
+            }));
+        """)
+        final_url = driver.current_url; title = driver.title
+        driver.quit()
+        return jsonify({"title":title,"url":final_url,"screenshot":png,"day_cells":day_cells})
+    except Exception as e:
+        try: driver.quit()
+        except: pass
+        return jsonify({"error":str(e)}), 500
+
+
 @app.route("/ping", methods=["GET"])
 def ping():
     """Test de connexion depuis la PWA."""
