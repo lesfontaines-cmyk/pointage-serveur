@@ -103,22 +103,20 @@ def cloture_selenium(email, password, url, plages):
         # ── 2b. Fermer popup RGPD ────────────────────────────────────────
         time.sleep(2)
         try:
-            driver.execute_script("""
-                // Chercher bouton J'AI COMPRIS dans toute la page
-                const allBtns = [...document.querySelectorAll('button, a, div, span')];
-                const rgpd = allBtns.find(b =>
-                    b.textContent.trim() === "J'AI COMPRIS" ||
-                    b.textContent.trim() === "J\'AI COMPRIS" ||
-                    b.textContent.includes("AI COMPRIS")
-                );
-                if (rgpd) {
-                    rgpd.scrollIntoView();
-                    rgpd.click();
-                }
-            """)
-            time.sleep(1.5)
+            xpath = "//*[contains(., 'AI COMPRIS') and (self::button or self::a or self::span)]"
+            btn_rgpd = driver.find_element('xpath', xpath)
+            driver.execute_script('arguments[0].scrollIntoView(); arguments[0].click();', btn_rgpd)
+            time.sleep(2)
         except Exception:
-            pass
+            try:
+                driver.execute_script(
+                    "const b=[...document.querySelectorAll('button,a,span,div')]"
+                    ".find(x=>x.textContent.includes('AI COMPRIS'));"
+                    "if(b){b.scrollIntoView();b.dispatchEvent(new MouseEvent('click',{bubbles:true}));}"
+                )
+                time.sleep(2)
+            except Exception:
+                pass
 
 
 
