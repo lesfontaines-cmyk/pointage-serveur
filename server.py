@@ -45,23 +45,16 @@ def cloture_selenium(email, password, url, plages):
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
 
-    # Trouver Chromium et Chromedriver (Railway/Nix ou système)
+    # Trouver Chromium et Chromedriver via env ou système
     import shutil, glob
 
-    def find_bin(*names):
-        for name in names:
-            p = shutil.which(name)
-            if p:
-                return p
-        # Chercher dans les chemins Nix
-        for name in names:
-            matches = glob.glob(f"/nix/store/*/{name}") + glob.glob(f"/nix/store/*/bin/{name}")
-            if matches:
-                return matches[0]
-        return None
+    chromium_path     = os.environ.get("CHROME_BIN") or \
+                        shutil.which("chromium") or \
+                        shutil.which("chromium-browser") or \
+                        shutil.which("google-chrome")
 
-    chromium_path     = find_bin("chromium", "chromium-browser", "google-chrome", "google-chrome-stable")
-    chromedriver_path = find_bin("chromedriver")
+    chromedriver_path = os.environ.get("CHROMEDRIVER_PATH") or \
+                        shutil.which("chromedriver")
 
     try:
         if chromium_path:
