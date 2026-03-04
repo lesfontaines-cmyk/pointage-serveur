@@ -100,23 +100,29 @@ def cloture_selenium(email, password, url, plages):
                 driver.quit()
                 return False, f"Erreur de connexion : {e}"
 
-        # ── 2b. Fermer popup RGPD ────────────────────────────────────────
+        # ── 2b. Fermer popup RGPD (Vue.js) ──────────────────────────────
         time.sleep(2)
-        try:
-            xpath = "//*[contains(., 'AI COMPRIS') and (self::button or self::a or self::span)]"
-            btn_rgpd = driver.find_element('xpath', xpath)
-            driver.execute_script('arguments[0].scrollIntoView(); arguments[0].click();', btn_rgpd)
-            time.sleep(2)
-        except Exception:
-            try:
-                driver.execute_script(
-                    "const b=[...document.querySelectorAll('button,a,span,div')]"
-                    ".find(x=>x.textContent.includes('AI COMPRIS'));"
-                    "if(b){b.scrollIntoView();b.dispatchEvent(new MouseEvent('click',{bubbles:true}));}"
-                )
-                time.sleep(2)
-            except Exception:
-                pass
+        # Plusieurs tentatives avec méthodes différentes
+        for _attempt in range(8):
+            closed = driver.execute_script(
+                "const candidates = [...document.querySelectorAll('button,a,span,div,p')];"
+                "const btn = candidates.find(x => x.textContent.trim() === \"J'AI COMPRIS\");"
+                "if (!btn) return false;"
+                "btn.scrollIntoView({block:'center'});"
+                "['mousedown','mouseup','click'].forEach(ev => "
+                "  btn.dispatchEvent(new MouseEvent(ev, {bubbles:true, cancelable:true}))"
+                ");"
+                "return true;"
+            )
+            time.sleep(0.8)
+            # Vérifier si popup disparue
+            still_open = driver.execute_script(
+                "return [...document.querySelectorAll('button,a,span,div,p')]"
+                ".some(x => x.textContent.trim() === \"J'AI COMPRIS\");"
+            )
+            if not still_open:
+                break
+        time.sleep(1)
 
 
 
@@ -305,18 +311,28 @@ def screenshot():
                 time.sleep(4)
             except: pass
         # Fermer popup RGPD avant screenshot
-        for attempt in range(5):
-            time.sleep(1)
-            try:
-                btns = driver.find_elements("xpath",
-                    "//*[contains(text(),'AI COMPRIS') or contains(text(),'COMPRIS') or contains(text(),'Accepter')]")
-                if btns:
-                    btns[0].click()
-                    time.sleep(1)
-                    break
-            except Exception:
-                pass
+        for _a in range(8):
+            closed = driver.execute_script(
+                "const btn=[...document.querySelectorAll('button,a,span,div,p')]"
+                ".find(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
+                "if(!btn)return false;"
+                "btn.scrollIntoView({block:'center'});"
+                "['mousedown','mouseup','click'].forEach(ev=>"
+                "btn.dispatchEvent(new MouseEvent(ev,{bubbles:true,cancelable:true})));"
+                "return true;"
+            )
+            time.sleep(0.8)
+            still = driver.execute_script(
+                "return [...document.querySelectorAll('button,a,span,div,p')]"
+                ".some(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
+            )
+            if not still: break
+        time.sleep(1)
 
+        rgpd_still_open = driver.execute_script(
+            "return [...document.querySelectorAll('button,a,span,div,p')]"
+            ".some(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
+        )
         png = driver.get_screenshot_as_base64()
         day_cells = driver.execute_script("""
             const cells = document.querySelectorAll('td, [class*="jour"], [class*="day"]');
@@ -327,7 +343,7 @@ def screenshot():
         """)
         final_url = driver.current_url; title = driver.title
         driver.quit()
-        return jsonify({"title":title,"url":final_url,"screenshot":png,"day_cells":day_cells})
+        return jsonify({"title":title,"url":final_url,"screenshot":png,"day_cells":day_cells,"rgpd_open":rgpd_still_open})
     except Exception as e:
         try: driver.quit()
         except: pass
