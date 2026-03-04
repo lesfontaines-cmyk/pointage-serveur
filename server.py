@@ -100,55 +100,48 @@ def cloture_selenium(email, password, url, plages):
                 driver.quit()
                 return False, f"Erreur de connexion : {e}"
 
-        # ── 2b. Fermer popup RGPD si présente ─────────────────────────────
-        for attempt in range(5):
-            time.sleep(1)
-            try:
-                btns = driver.find_elements("xpath",
-                    "//*[contains(text(),'AI COMPRIS') or contains(text(),'COMPRIS') or contains(text(),'Accepter')]")
-                if btns:
-                    btns[0].click()
-                    time.sleep(1)
-                    break
-            except Exception:
-                pass
-        # Fallback JS
+        # ── 2b. Fermer popup RGPD ────────────────────────────────────────
+        time.sleep(2)
         try:
-            driver.execute_script(
-                "const b=[...document.querySelectorAll('button,a,span')]"
-                ".find(x=>x.textContent.trim().includes('COMPRIS'));"
-                "if(b){b.dispatchEvent(new MouseEvent('click',{bubbles:true}));}"
-            )
-            time.sleep(1)
+            driver.execute_script("""
+                // Chercher bouton J'AI COMPRIS dans toute la page
+                const allBtns = [...document.querySelectorAll('button, a, div, span')];
+                const rgpd = allBtns.find(b =>
+                    b.textContent.trim() === "J'AI COMPRIS" ||
+                    b.textContent.trim() === "J\'AI COMPRIS" ||
+                    b.textContent.includes("AI COMPRIS")
+                );
+                if (rgpd) {
+                    rgpd.scrollIntoView();
+                    rgpd.click();
+                }
+            """)
+            time.sleep(1.5)
         except Exception:
             pass
+
 
 
         # ── 3. Cliquer le jour courant (format Ecollaboratrice: "Mercredi 04/03") ──
         today_str = datetime.date.today().strftime("%d/%m")   # ex: "04/03"
 
-        found = driver.execute_script(
-            f"const ts='{today_str}';"
-            "const els=document.querySelectorAll('td,tr,div,span,a,li');"
-            "for(const el of els){"
-            "  const txt=el.textContent.trim();"
-            "  if(txt.includes(ts)||txt.startsWith(ts)){"
-            "    let t=el;"
-            "    for(let i=0;i<4;i++){"
-            "      if(t.tagName==='TR'||t.onclick||t.getAttribute('ng-click')){"
-            "        t.click();return 'ok:'+txt.substring(0,20);"
-            "      }"
-            "      if(t.parentElement)t=t.parentElement;else break;"
-            "    }"
-            "    el.click();return 'ok2:'+txt.substring(0,20);"
-            "  }"
-            "}"
-            "return 'not-found';"
-        )
+        found = driver.execute_script(f"""
+            const ts = '{today_str}';
+            // Chercher td.text-nowrap contenant la date ex: "Mercredi 04/03"
+            const tds = document.querySelectorAll('td.text-nowrap, td');
+            for (const td of tds) {{
+                const txt = td.textContent.trim();
+                if (txt.includes(ts)) {{
+                    td.click();
+                    return 'ok:' + txt.substring(0, 30);
+                }}
+            }}
+            return 'not-found';
+        """)
 
         if isinstance(found, str) and found == 'not-found':
             driver.quit()
-            return False, f"Cellule du {today_str} introuvable dans le tableau."
+            return False, f"Ligne du {today_str} introuvable. La popup RGPD bloque peut-être encore."
 
         time.sleep(2)
 
