@@ -147,67 +147,40 @@ def cloture_selenium(email, password, url, plages):
 
         time.sleep(2)
 
-        # ── 4. Injection Vue.js ──────────────────────────────────────────────
+        # ── 4. Injection horaires via inputs range-picker ────────────────────
+        time.sleep(2)
         plages_min = [{"debut": to_minutes(p["debut"]), "fin": to_minutes(p["fin"])} for p in plages]
-        plages_json = json.dumps(plages_min)
 
-        result = driver.execute_script(f"""
-            function findVue(el) {{
-                if (!el) return null;
-                if (el.__vue__ && el.__vue__.$data && el.__vue__.$data.vraiesDonnees) return el.__vue__;
-                for (const ch of (el.children || [])) {{
-                    const r = findVue(ch); if (r) return r;
-                }}
-                return null;
-            }}
-            const vue = findVue(document.body);
-            if (!vue) return 'ERR_NO_VUE';
-            const today = new Date().getDate();
-            const day = (vue.$data.vraiesDonnees || []).find(x => {{
-                const dt = new Date(x.Date || x.date || '');
-                return dt.getDate() === today;
-            }});
-            if (!day) return 'ERR_NO_DAY';
-            const pl = {plages_json};
-            while (day.Horaires.length > pl.length) day.Horaires.pop();
-            while (day.Horaires.length < pl.length) day.Horaires.push({{
-                CanAddNext:true, IdTache:0, TypeHeure:0,
-                Observation:'', HeureDebut:0, HeureFin:0
-            }});
-            for (let i = 0; i < pl.length; i++) {{
-                day.Horaires[i].HeureDebut = pl[i].debut;
-                day.Horaires[i].HeureFin   = pl[i].fin;
-            }}
-            vue.$forceUpdate();
-            return 'OK';
+        result = driver.execute_script("""
+            const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
+            if (inputs.length === 0) return 'ERR_NO_INPUTS';
+            return 'OK:' + inputs.length;
         """)
 
-        if result != "OK":
+        if not result or not str(result).startswith('OK'):
             driver.quit()
-            return False, f"Injection échouée ({result}). La page a peut-être changé."
+            return False, f"Inputs horaires introuvables : {result}"
 
-        time.sleep(1)
-
-        # Synchro dropdowns visuels
         for i, p in enumerate(plages_min):
-            d_str = min_to_hhmm(p["debut"])
-            f_str = min_to_hhmm(p["fin"])
+            debut = min_to_hhmm(p['debut'])
+            fin   = min_to_hhmm(p['fin'])
             driver.execute_script(f"""
-                const tg = Array.from(document.querySelectorAll('.input-group'))
-                    .filter(g => g.querySelector('.horaire-heure, .range-picker'));
-                const g1 = tg[{i*2}], g2 = tg[{i*2+1}];
-                if (g1) {{
-                    const item = [...(g1.querySelectorAll('.dropdown-item') || [])]
-                        .find(e => e.textContent.trim() === '{d_str}');
-                    if (item) item.click();
+                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
+                const idx = {i} * 2;
+                if (inputs[idx]) {{
+                    inputs[idx].value = '{debut}';
+                    inputs[idx].dispatchEvent(new Event('input', {{bubbles:true}}));
+                    inputs[idx].dispatchEvent(new Event('change', {{bubbles:true}}));
+                    inputs[idx].dispatchEvent(new Event('blur', {{bubbles:true}}));
                 }}
-                if (g2) {{
-                    const item = [...(g2.querySelectorAll('.dropdown-item') || [])]
-                        .find(e => e.textContent.trim() === '{f_str}');
-                    if (item) item.click();
+                if (inputs[idx+1]) {{
+                    inputs[idx+1].value = '{fin}';
+                    inputs[idx+1].dispatchEvent(new Event('input', {{bubbles:true}}));
+                    inputs[idx+1].dispatchEvent(new Event('change', {{bubbles:true}}));
+                    inputs[idx+1].dispatchEvent(new Event('blur', {{bubbles:true}}));
                 }}
             """)
-            time.sleep(0.3)
+            time.sleep(0.5)
 
         # ── 5. Sauvegarder ───────────────────────────────────────────────────
         time.sleep(0.5)
@@ -308,19 +281,20 @@ def screenshot():
                     pwd_el.send_keys(Keys.RETURN)
                 time.sleep(4)
             except: pass
-        # Fermer popup RGPD avant screenshot
-        driver.execute_script(
-            "(function(){"
-            "  const btn=[...document.querySelectorAll('button,a,span,div,p')]"
-            "    .find(x=>x.textContent.trim()===\"J'AI COMPRIS\");"
-            "  if(btn)btn.click();"
-            "  document.querySelectorAll('.modal,.modal-backdrop,.overlay,.popup,[class*=modal],[class*=rgpd],[class*=popup]')"
-            "    .forEach(el=>el.remove());"
-            "  document.body.style.overflow='auto';"
-            "  document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
-            "})();"
+        # Capturer HTML popup RGPD AVANT toute tentative
+        popup_html = driver.execute_script(
+            "const modals=[...document.querySelectorAll('[class*=modal],[class*=popup],[class*=rgpd],[class*=overlay]')];"
+            "if(modals.length) return modals[0].outerHTML.substring(0,2000);"
+            "return 'NO_MODAL_FOUND';"
         )
-        time.sleep(1.5)
+        # Tous les boutons visibles sur la page
+        all_buttons = driver.execute_script(
+            "return [...document.querySelectorAll('button,a')].map(b=>({"
+            "  tag:b.tagName, text:b.textContent.trim().substring(0,50),"
+            "  cls:b.className.substring(0,50), visible:b.offsetParent!==null"
+            "})).filter(b=>b.text.length>0).slice(0,30);"
+        )
+        time.sleep(1)
         # Inspecter le bouton RGPD en détail
         rgpd_info = driver.execute_script(
             "const all=[...document.querySelectorAll('button,a,span,div,p')];"
@@ -343,7 +317,7 @@ def screenshot():
         """)
         final_url = driver.current_url; title = driver.title
         driver.quit()
-        return jsonify({"title":title,"url":final_url,"screenshot":png,"day_cells":day_cells,"rgpd_open":rgpd_still_open,"rgpd_info":rgpd_info})
+        return jsonify({"title":title,"url":final_url,"screenshot":png,"day_cells":day_cells,"rgpd_open":rgpd_still_open,"rgpd_info":rgpd_info,"popup_html":popup_html,"all_buttons":all_buttons})
     except Exception as e:
         try: driver.quit()
         except: pass
