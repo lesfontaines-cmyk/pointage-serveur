@@ -178,7 +178,7 @@ def cloture_selenium(email, password, url, plages, date_str=""):
                     inputs[idx+1].dispatchEvent(new Event('blur', {{bubbles:true}}));
                 }}
             """)
-            time.sleep(0.5)
+            time.sleep(2)  # Attendre que Vue.js traite les événements
 
         # ── 5. Valider la journée ────────────────────────────────────────────
         time.sleep(0.5)
