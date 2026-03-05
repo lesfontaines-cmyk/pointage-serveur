@@ -148,6 +148,7 @@ def cloture_selenium(email, password, url, plages, date_str=""):
         # ── 4. Injection horaires via inputs range-picker ────────────────────
         time.sleep(2)
         plages_min = [{"debut": to_minutes(p["debut"]), "fin": to_minutes(p["fin"])} for p in plages]
+        plages_json = json.dumps(plages_min)
 
         result = driver.execute_script("""
             const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
@@ -179,6 +180,47 @@ def cloture_selenium(email, password, url, plages, date_str=""):
                 }}
             """)
             time.sleep(2)  # Attendre que Vue.js traite les événements
+
+        # ── 4b. Vérification que les valeurs ont bien été injectées ──────────
+        time.sleep(1)
+        for tentative in range(3):
+            check = driver.execute_script(f"""
+                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
+                const plages = {plages_json};
+                for (let i = 0; i < plages.length; i++) {{
+                    const debut = String(Math.floor(plages[i].debut/60)).padStart(2,'0') + ':' + String(plages[i].debut%60).padStart(2,'0');
+                    const fin   = String(Math.floor(plages[i].fin/60)).padStart(2,'0') + ':' + String(plages[i].fin%60).padStart(2,'0');
+                    if (!inputs[i*2] || inputs[i*2].value !== debut) return 'MISMATCH:plage' + i + '_debut:got=' + (inputs[i*2]?.value) + '_expected=' + debut;
+                    if (!inputs[i*2+1] || inputs[i*2+1].value !== fin) return 'MISMATCH:plage' + i + '_fin:got=' + (inputs[i*2+1]?.value) + '_expected=' + fin;
+                }}
+                return 'OK';
+            """)
+            if str(check) == 'OK':
+                break
+            # Réinjecter si mismatch
+            for i, p in enumerate(plages_min):
+                debut = min_to_hhmm(p['debut'])
+                fin   = min_to_hhmm(p['fin'])
+                driver.execute_script(f"""
+                    const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
+                    const idx = {i} * 2;
+                    if (inputs[idx]) {{
+                        inputs[idx].value = '{debut}';
+                        inputs[idx].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{debut}'}}));
+                        inputs[idx].dispatchEvent(new Event('change', {{bubbles:true}}));
+                        inputs[idx].dispatchEvent(new Event('blur', {{bubbles:true}}));
+                    }}
+                    if (inputs[idx+1]) {{
+                        inputs[idx+1].value = '{fin}';
+                        inputs[idx+1].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{fin}'}}));
+                        inputs[idx+1].dispatchEvent(new Event('change', {{bubbles:true}}));
+                        inputs[idx+1].dispatchEvent(new Event('blur', {{bubbles:true}}));
+                    }}
+                """)
+                time.sleep(2)
+        else:
+            driver.quit()
+            return False, f"Injection échouée après 3 tentatives : {check}"
 
         # ── 5. Valider la journée ────────────────────────────────────────────
         time.sleep(0.5)
