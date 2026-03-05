@@ -161,25 +161,47 @@ def cloture_selenium(email, password, url, plages, date_str=""):
             return False, f"Inputs horaires introuvables : {result}"
 
         for i, p in enumerate(plages_min):
-            debut = min_to_hhmm(p['debut'])
-            fin   = min_to_hhmm(p['fin'])
+            debut_indice = p['debut'] // 15
+            fin_indice   = p['fin']   // 15
+            # Ouvrir le dropdown debut et cliquer le bon bouton
+            driver.execute_script(f"""
+                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
+                const idx = {i} * 2;
+                // Cliquer la flèche dropdown debut
+                if (inputs[idx]) {{
+                    const toggleBtn = inputs[idx].nextElementSibling.querySelector('.dropdown-toggle');
+                    if (toggleBtn) toggleBtn.click();
+                }}
+            """)
+            time.sleep(0.5)
             driver.execute_script(f"""
                 const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
                 const idx = {i} * 2;
                 if (inputs[idx]) {{
-                    inputs[idx].value = '{debut}';
-                    inputs[idx].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{debut}'}}));
-                    inputs[idx].dispatchEvent(new Event('change', {{bubbles:true}}));
-                    inputs[idx].dispatchEvent(new Event('blur', {{bubbles:true}}));
-                }}
-                if (inputs[idx+1]) {{
-                    inputs[idx+1].value = '{fin}';
-                    inputs[idx+1].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{fin}'}}));
-                    inputs[idx+1].dispatchEvent(new Event('change', {{bubbles:true}}));
-                    inputs[idx+1].dispatchEvent(new Event('blur', {{bubbles:true}}));
+                    const item = inputs[idx].nextElementSibling.querySelector('[data-indice="{debut_indice}"]');
+                    if (item) item.click();
                 }}
             """)
-            time.sleep(2)  # Attendre que Vue.js traite les événements
+            time.sleep(0.5)
+            # Ouvrir le dropdown fin et cliquer le bon bouton
+            driver.execute_script(f"""
+                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
+                const idx = {i} * 2;
+                if (inputs[idx+1]) {{
+                    const toggleBtn = inputs[idx+1].nextElementSibling.querySelector('.dropdown-toggle');
+                    if (toggleBtn) toggleBtn.click();
+                }}
+            """)
+            time.sleep(0.5)
+            driver.execute_script(f"""
+                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
+                const idx = {i} * 2;
+                if (inputs[idx+1]) {{
+                    const item = inputs[idx+1].nextElementSibling.querySelector('[data-indice="{fin_indice}"]');
+                    if (item) item.click();
+                }}
+            """)
+            time.sleep(0.5)
 
         # ── 4b. Vérification que les valeurs ont bien été injectées ──────────
         time.sleep(1)
@@ -249,18 +271,7 @@ def cloture_selenium(email, password, url, plages, date_str=""):
         except Exception:
             time.sleep(2)
 
-        # ── 7. Sauvegarder (page principale, jamais Sauvegarder et Terminer) ──
-        saved = driver.execute_script("""
-            const btn = [...document.querySelectorAll('button')].filter(b => b.offsetParent !== null)
-                .find(b => b.textContent.trim() === 'Sauvegarder');
-            if (btn) { btn.click(); return true; }
-            return false;
-        """)
-        time.sleep(2)
-
-        if not saved:
-            driver.quit()
-            return False, "Bouton Sauvegarder introuvable."
+        time.sleep(1)
 
 
         driver.quit()
