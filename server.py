@@ -172,44 +172,28 @@ def cloture_selenium(email, password, url, plages):
             """)
             time.sleep(0.5)
 
-        # ── 5. Valider la journée (bouton btn-success avec fa-check) ──────────
+        # ── 5. Fermer la modale ───────────────────────────────────────────────
         time.sleep(0.5)
-        validated = driver.execute_script("""
-            // Bouton 'Valider et bloquer la journée'
-            const btn = [...document.querySelectorAll('button')]
-                .find(b => b.getAttribute('data-tippy-content') === 'Valider et bloquer la journée'
-                        || (b.classList.contains('btn-success') && b.querySelector('.fa-check')));
-            if (btn) { btn.click(); return true; }
-            return false;
-        """)
-        time.sleep(1)
-
-        # ── 6. Fermer la modale ───────────────────────────────────────────────
-        closed = driver.execute_script("""
-            const btn = [...document.querySelectorAll('button')]
-                .find(b => b.textContent.trim().includes('Fermer'));
-            if (btn) { btn.click(); return true; }
-            return false;
-        """)
-        time.sleep(1)
-
-        # ── 7. Sauvegarder et Terminer (page principale) ─────────────────────
-        time.sleep(0.5)
-        saved = driver.execute_script("""
-            const btn = [...document.querySelectorAll('button')]
-                .find(b => b.textContent.includes('Sauvegarder'));
-            if (btn) { btn.click(); return true; }
-            return false;
-        """)
-        time.sleep(1.5)
-
-        # Confirmer dialog éventuel
         driver.execute_script("""
             const btn = [...document.querySelectorAll('button')]
-                .find(b => ['Oui','Confirmer','OK'].includes(b.textContent.trim()));
+                .find(b => b.textContent.trim() === 'Fermer' || b.textContent.trim().includes('Fermer'));
             if (btn) btn.click();
         """)
-        time.sleep(0.8)
+        time.sleep(2)
+
+        # ── 6. Sauvegarder (page principale, pas Sauvegarder et Terminer) ─────
+        saved = driver.execute_script("""
+            const btns = [...document.querySelectorAll('button')];
+            const btn = btns.find(b => b.textContent.trim() === 'Sauvegarder');
+            if (btn) { btn.click(); return true; }
+            return false;
+        """)
+        time.sleep(2)
+
+        if not saved:
+            driver.quit()
+            return False, "Bouton Sauvegarder introuvable."
+
 
         driver.quit()
 
