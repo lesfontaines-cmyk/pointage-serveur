@@ -172,19 +172,35 @@ def cloture_selenium(email, password, url, plages):
             """)
             time.sleep(0.5)
 
-        # ── 5. Sauvegarder ───────────────────────────────────────────────────
+        # ── 5. Valider la journée (bouton btn-success avec fa-check) ──────────
         time.sleep(0.5)
-        saved = driver.execute_script("""
+        validated = driver.execute_script("""
+            // Bouton 'Valider et bloquer la journée'
             const btn = [...document.querySelectorAll('button')]
-                .find(b => b.textContent.trim() === 'Sauvegarder');
+                .find(b => b.getAttribute('data-tippy-content') === 'Valider et bloquer la journée'
+                        || (b.classList.contains('btn-success') && b.querySelector('.fa-check')));
             if (btn) { btn.click(); return true; }
             return false;
         """)
+        time.sleep(1)
 
-        if not saved:
-            driver.quit()
-            return False, "Bouton 'Sauvegarder' introuvable."
+        # ── 6. Fermer la modale ───────────────────────────────────────────────
+        closed = driver.execute_script("""
+            const btn = [...document.querySelectorAll('button')]
+                .find(b => b.textContent.trim().includes('Fermer'));
+            if (btn) { btn.click(); return true; }
+            return false;
+        """)
+        time.sleep(1)
 
+        # ── 7. Sauvegarder et Terminer (page principale) ─────────────────────
+        time.sleep(0.5)
+        saved = driver.execute_script("""
+            const btn = [...document.querySelectorAll('button')]
+                .find(b => b.textContent.includes('Sauvegarder'));
+            if (btn) { btn.click(); return true; }
+            return false;
+        """)
         time.sleep(1.5)
 
         # Confirmer dialog éventuel
