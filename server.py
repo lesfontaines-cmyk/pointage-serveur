@@ -195,7 +195,17 @@ def cloture_selenium(email, password, url, plages, date_str=""):
                 .find(b => b.textContent.trim() === 'Fermer');
             if (btn) btn.click();
         """)
-        time.sleep(2)
+
+        # Attendre que la modale disparaisse complètement
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
+        try:
+            WebDriverWait(driver, 5).until(
+                EC.invisibility_of_element_located((By.CSS_SELECTOR, 'input.range-picker.horaire-heure'))
+            )
+        except Exception:
+            time.sleep(2)
 
         # ── 7. Sauvegarder (page principale, jamais Sauvegarder et Terminer) ──
         saved = driver.execute_script("""
