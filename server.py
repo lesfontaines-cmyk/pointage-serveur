@@ -172,19 +172,27 @@ def cloture_selenium(email, password, url, plages):
             """)
             time.sleep(0.5)
 
-        # ── 5. Fermer la modale ───────────────────────────────────────────────
+        # ── 5. Valider la journée ────────────────────────────────────────────
         time.sleep(0.5)
         driver.execute_script("""
-            const btn = [...document.querySelectorAll('button')]
-                .find(b => b.textContent.trim() === 'Fermer' || b.textContent.trim().includes('Fermer'));
+            const btn = [...document.querySelectorAll('button')].filter(b => b.offsetParent !== null)
+                .find(b => b.getAttribute('data-tippy-content') === 'Valider et bloquer la journée');
+            if (btn) btn.click();
+        """)
+        time.sleep(1)
+
+        # ── 6. Fermer la modale ───────────────────────────────────────────────
+        driver.execute_script("""
+            const btn = [...document.querySelectorAll('button')].filter(b => b.offsetParent !== null)
+                .find(b => b.textContent.trim() === 'Fermer');
             if (btn) btn.click();
         """)
         time.sleep(2)
 
-        # ── 6. Sauvegarder (page principale, pas Sauvegarder et Terminer) ─────
+        # ── 7. Sauvegarder (page principale, jamais Sauvegarder et Terminer) ──
         saved = driver.execute_script("""
-            const btns = [...document.querySelectorAll('button')];
-            const btn = btns.find(b => b.textContent.trim() === 'Sauvegarder');
+            const btn = [...document.querySelectorAll('button')].filter(b => b.offsetParent !== null)
+                .find(b => b.textContent.trim() === 'Sauvegarder');
             if (btn) { btn.click(); return true; }
             return false;
         """)
