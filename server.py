@@ -146,7 +146,17 @@ def cloture_selenium(email, password, url, plages, date_str=""):
         time.sleep(3)  # Attendre que la modale s'ouvre
 
         # ── 4. Injection horaires via Vue.$data ──────────────────────────────
-        time.sleep(2)
+        # Attendre que la table horaires soit bien chargée dans la modale
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'table.tableau-horaires-1j'))
+            )
+        except Exception:
+            time.sleep(3)
+        time.sleep(1)  # laisser Vue finir de rendre
         plages_min = [{"debut": to_minutes(p["debut"]), "fin": to_minutes(p["fin"])} for p in plages]
         plages_json = json.dumps(plages_min)
 
