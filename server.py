@@ -112,18 +112,20 @@ def cloture_selenium(email, password, url, plages):
 
 
 
-        # ── 3. Cliquer le jour courant (format Ecollaboratrice: "Mercredi 04/03") ──
-        today_str = datetime.date.today().strftime("%d/%m")   # ex: "04/03"
+        # ── 3. Cliquer .cellule-horaires du jour pour ouvrir la modale ────────
+        today_str = datetime.date.today().strftime('%d/%m')   # ex: '05/03'
 
         found = driver.execute_script(f"""
             const ts = '{today_str}';
-            // Chercher td.text-nowrap contenant la date ex: "Mercredi 04/03"
-            const tds = document.querySelectorAll('td.text-nowrap, td');
-            for (const td of tds) {{
-                const txt = td.textContent.trim();
-                if (txt.includes(ts)) {{
-                    td.click();
-                    return 'ok:' + txt.substring(0, 30);
+            const rows = document.querySelectorAll('tr');
+            for (const tr of rows) {{
+                if (tr.textContent.includes(ts)) {{
+                    // Cliquer sur .cellule-horaires pour ouvrir la modale
+                    const cell = tr.querySelector('.cellule-horaires');
+                    if (cell) {{ cell.click(); return 'ok-cell:' + ts; }}
+                    // Fallback : cliquer le td
+                    const td = tr.querySelector('td');
+                    if (td) {{ td.click(); return 'ok-td:' + ts; }}
                 }}
             }}
             return 'not-found';
@@ -131,9 +133,9 @@ def cloture_selenium(email, password, url, plages):
 
         if isinstance(found, str) and found == 'not-found':
             driver.quit()
-            return False, f"Ligne du {today_str} introuvable. La popup RGPD bloque peut-être encore."
+            return False, f'Ligne du {today_str} introuvable dans le tableau.'
 
-        time.sleep(2)
+        time.sleep(3)  # Attendre que la modale s'ouvre
 
         # ── 4. Injection horaires via inputs range-picker ────────────────────
         time.sleep(2)
