@@ -163,42 +163,18 @@ def cloture_selenium(email, password, url, plages, date_str=""):
         for i, p in enumerate(plages_min):
             debut_indice = p['debut'] // 15
             fin_indice   = p['fin']   // 15
-            # Ouvrir le dropdown debut et cliquer le bon bouton
-            driver.execute_script(f"""
-                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
-                const idx = {i} * 2;
-                // Cliquer la flèche dropdown debut
-                if (inputs[idx]) {{
-                    const toggleBtn = inputs[idx].nextElementSibling.querySelector('.dropdown-toggle');
-                    if (toggleBtn) toggleBtn.click();
-                }}
-            """)
-            time.sleep(0.5)
             driver.execute_script(f"""
                 const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
                 const idx = {i} * 2;
                 if (inputs[idx]) {{
-                    const item = inputs[idx].nextElementSibling.querySelector('[data-indice="{debut_indice}"]');
-                    if (item) item.click();
+                    const dd = inputs[idx].nextElementSibling;
+                    dd.querySelector('.dropdown-toggle').click();
+                    dd.querySelector('[data-indice="{debut_indice}"]').click();
                 }}
-            """)
-            time.sleep(0.5)
-            # Ouvrir le dropdown fin et cliquer le bon bouton
-            driver.execute_script(f"""
-                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
-                const idx = {i} * 2;
                 if (inputs[idx+1]) {{
-                    const toggleBtn = inputs[idx+1].nextElementSibling.querySelector('.dropdown-toggle');
-                    if (toggleBtn) toggleBtn.click();
-                }}
-            """)
-            time.sleep(0.5)
-            driver.execute_script(f"""
-                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
-                const idx = {i} * 2;
-                if (inputs[idx+1]) {{
-                    const item = inputs[idx+1].nextElementSibling.querySelector('[data-indice="{fin_indice}"]');
-                    if (item) item.click();
+                    const dd = inputs[idx+1].nextElementSibling;
+                    dd.querySelector('.dropdown-toggle').click();
+                    dd.querySelector('[data-indice="{fin_indice}"]').click();
                 }}
             """)
             time.sleep(0.5)
