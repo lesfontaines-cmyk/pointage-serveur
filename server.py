@@ -167,13 +167,13 @@ def cloture_selenium(email, password, url, plages, date_str=""):
                 const idx = {i} * 2;
                 if (inputs[idx]) {{
                     inputs[idx].value = '{debut}';
-                    inputs[idx].dispatchEvent(new Event('input', {{bubbles:true}}));
+                    inputs[idx].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{debut}'}}));
                     inputs[idx].dispatchEvent(new Event('change', {{bubbles:true}}));
                     inputs[idx].dispatchEvent(new Event('blur', {{bubbles:true}}));
                 }}
                 if (inputs[idx+1]) {{
                     inputs[idx+1].value = '{fin}';
-                    inputs[idx+1].dispatchEvent(new Event('input', {{bubbles:true}}));
+                    inputs[idx+1].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{fin}'}}));
                     inputs[idx+1].dispatchEvent(new Event('change', {{bubbles:true}}));
                     inputs[idx+1].dispatchEvent(new Event('blur', {{bubbles:true}}));
                 }}
