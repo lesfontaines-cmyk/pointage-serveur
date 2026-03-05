@@ -145,101 +145,55 @@ def cloture_selenium(email, password, url, plages, date_str=""):
 
         time.sleep(3)  # Attendre que la modale s'ouvre
 
-        # ── 4. Injection horaires via inputs range-picker ────────────────────
+        # ── 4. Injection horaires via Vue.$data ──────────────────────────────
         time.sleep(2)
         plages_min = [{"debut": to_minutes(p["debut"]), "fin": to_minutes(p["fin"])} for p in plages]
         plages_json = json.dumps(plages_min)
 
-        result = driver.execute_script("""
-            const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
-            if (inputs.length === 0) return 'ERR_NO_INPUTS';
-            return 'OK:' + inputs.length;
+        result = driver.execute_script(f"""
+            const v = document.getElementById('vue-vdp-saisie-journee')?.__vue__;
+            if (!v) return 'ERR_NO_VUE';
+            const dateStr = '{date_str}';
+            const jours = v.$data.model.Jours;
+            const jour = jours.find(j => j.Date && j.Date.startsWith(dateStr));
+            if (!jour) return 'ERR_NO_DAY:' + dateStr + ':jours=' + jours.map(j=>j.Date&&j.Date.substring(0,10)).join(',').substring(0,100);
+            const pl = {plages_json};
+            while (jour.Horaires.length > pl.length) jour.Horaires.pop();
+            while (jour.Horaires.length < pl.length) jour.Horaires.push({{
+                HeureDebut: 0, HeureFin: 0, Id: 0, IdTache: 0,
+                TypeHeure: 0, Observation: '', CanAddNext: true
+            }});
+            for (let i = 0; i < pl.length; i++) {{
+                jour.Horaires[i].HeureDebut = pl[i].debut;
+                jour.Horaires[i].HeureFin   = pl[i].fin;
+            }}
+            v.$forceUpdate();
+            return 'OK';
         """)
 
         if not result or not str(result).startswith('OK'):
             driver.quit()
-            return False, f"Inputs horaires introuvables : {result}"
+            return False, f"Injection Vue echouee : {result}"
 
-        for i, p in enumerate(plages_min):
-            debut_indice = p['debut'] // 15
-            fin_indice   = p['fin']   // 15
-            driver.execute_script(f"""
-                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
-                const idx = {i} * 2;
-                if (inputs[idx]) {{
-                    const dd = inputs[idx].nextElementSibling;
-                    dd.querySelector('.dropdown-toggle').click();
-                    dd.querySelector('[data-indice="{debut_indice}"]').click();
-                }}
-                if (inputs[idx+1]) {{
-                    const dd = inputs[idx+1].nextElementSibling;
-                    dd.querySelector('.dropdown-toggle').click();
-                    dd.querySelector('[data-indice="{fin_indice}"]').click();
-                }}
-            """)
-            time.sleep(0.5)
-
-        # ── 4b. Vérification que les valeurs ont bien été injectées ──────────
         time.sleep(1)
-        for tentative in range(3):
-            check = driver.execute_script(f"""
-                const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
-                const plages = {plages_json};
-                for (let i = 0; i < plages.length; i++) {{
-                    const debut = String(Math.floor(plages[i].debut/60)).padStart(2,'0') + ':' + String(plages[i].debut%60).padStart(2,'0');
-                    const fin   = String(Math.floor(plages[i].fin/60)).padStart(2,'0') + ':' + String(plages[i].fin%60).padStart(2,'0');
-                    if (!inputs[i*2] || inputs[i*2].value !== debut) return 'MISMATCH:plage' + i + '_debut:got=' + (inputs[i*2]?.value) + '_expected=' + debut;
-                    if (!inputs[i*2+1] || inputs[i*2+1].value !== fin) return 'MISMATCH:plage' + i + '_fin:got=' + (inputs[i*2+1]?.value) + '_expected=' + fin;
-                }}
-                return 'OK';
-            """)
-            if str(check) == 'OK':
-                break
-            # Réinjecter si mismatch
-            for i, p in enumerate(plages_min):
-                debut = min_to_hhmm(p['debut'])
-                fin   = min_to_hhmm(p['fin'])
-                driver.execute_script(f"""
-                    const inputs = [...document.querySelectorAll('input.range-picker.horaire-heure')];
-                    const idx = {i} * 2;
-                    if (inputs[idx]) {{
-                        inputs[idx].value = '{debut}';
-                        inputs[idx].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{debut}'}}));
-                        inputs[idx].dispatchEvent(new Event('change', {{bubbles:true}}));
-                        inputs[idx].dispatchEvent(new Event('blur', {{bubbles:true}}));
-                    }}
-                    if (inputs[idx+1]) {{
-                        inputs[idx+1].value = '{fin}';
-                        inputs[idx+1].dispatchEvent(new InputEvent('input', {{bubbles:true, data:'{fin}'}}));
-                        inputs[idx+1].dispatchEvent(new Event('change', {{bubbles:true}}));
-                        inputs[idx+1].dispatchEvent(new Event('blur', {{bubbles:true}}));
-                    }}
-                """)
-                time.sleep(2)
-        else:
-            driver.quit()
-            return False, f"Injection échouée après 3 tentatives : {check}"
 
-        # ── 5. Valider la journée ────────────────────────────────────────────
-        time.sleep(0.5)
+        # ── 5. Valider la journee ────────────────────────────────────────────
         driver.execute_script("""
             const btn = [...document.querySelectorAll('button')].filter(b => b.offsetParent !== null)
-                .find(b => b.getAttribute('data-tippy-content') === 'Valider et bloquer la journée');
+                .find(b => b.getAttribute('data-tippy-content') === 'Valider et bloquer la journee');
             if (btn) btn.click();
         """)
         time.sleep(1)
 
         # ── 6. Fermer la modale ───────────────────────────────────────────────
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.common.by import By
         driver.execute_script("""
             const btn = [...document.querySelectorAll('button')].filter(b => b.offsetParent !== null)
                 .find(b => b.textContent.trim() === 'Fermer');
             if (btn) btn.click();
         """)
-
-        # Attendre que la modale disparaisse complètement
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.common.by import By
         try:
             WebDriverWait(driver, 5).until(
                 EC.invisibility_of_element_located((By.CSS_SELECTOR, 'input.range-picker.horaire-heure'))
@@ -247,10 +201,15 @@ def cloture_selenium(email, password, url, plages, date_str=""):
         except Exception:
             time.sleep(2)
 
+        # ── 7. Sauvegarder (page principale) ─────────────────────────────────
         time.sleep(1)
+        driver.execute_script("""
+            const btn = [...document.querySelectorAll('button')].filter(b => b.offsetParent !== null)
+                .find(b => b.textContent.trim() === 'Sauvegarder');
+            if (btn) btn.click();
+        """)
+        time.sleep(2)
 
-
-        driver.quit()
 
         resume = " | ".join(f"{p['debut']} → {p['fin']}" for p in plages)
         return True, f"Clôture réussie : {resume}"
