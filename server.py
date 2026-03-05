@@ -151,24 +151,27 @@ def cloture_selenium(email, password, url, plages, date_str=""):
         plages_json = json.dumps(plages_min)
 
         result = driver.execute_script(f"""
-            const v = document.getElementById('vue-vdp-saisie-journee')?.__vue__;
-            if (!v) return 'ERR_NO_VUE';
-            const dateStr = '{date_str}';
-            const jours = v.$data.model.Jours;
-            const jour = jours.find(j => j.Date && j.Date.startsWith(dateStr));
-            if (!jour) return 'ERR_NO_DAY:' + dateStr + ':jours=' + jours.map(j=>j.Date&&j.Date.substring(0,10)).join(',').substring(0,100);
+            // Trouver le composant table du jour ouvert
+            const table = document.querySelector('table.tableau-horaires-1j');
+            if (!table || !table.__vue__) return 'ERR_NO_TABLE_VUE';
+            const tv = table.__vue__;
+            const Vue = tv.$root.constructor;
+            const day = tv.$props.day;
+            if (!day) return 'ERR_NO_DAY_PROP';
             const pl = {plages_json};
-            while (jour.Horaires.length > pl.length) jour.Horaires.pop();
-            while (jour.Horaires.length < pl.length) jour.Horaires.push({{
+            // Ajuster le nombre de plages
+            while (day.Horaires.length > pl.length) day.Horaires.pop();
+            while (day.Horaires.length < pl.length) day.Horaires.push({{
                 HeureDebut: 0, HeureFin: 0, Id: 0, IdTache: 0,
                 TypeHeure: 0, Observation: '', CanAddNext: true
             }});
+            // Utiliser Vue.set pour que Vue détecte les changements
             for (let i = 0; i < pl.length; i++) {{
-                jour.Horaires[i].HeureDebut = pl[i].debut;
-                jour.Horaires[i].HeureFin   = pl[i].fin;
+                Vue.set(day.Horaires[i], 'HeureDebut', pl[i].debut);
+                Vue.set(day.Horaires[i], 'HeureFin',   pl[i].fin);
             }}
-            v.$forceUpdate();
-            return 'OK';
+            tv.$forceUpdate();
+            return 'OK:' + pl.map(p=>p.debut+'-'+p.fin).join(',');
         """)
 
         if not result or not str(result).startswith('OK'):
