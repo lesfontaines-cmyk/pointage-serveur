@@ -26,7 +26,7 @@ def min_to_hhmm(m):
     return f"{m // 60:02d}:{m % 60:02d}"
 
 # ─── CLÔTURE SELENIUM ────────────────────────────────────────────────────────
-def cloture_selenium(email, password, url, plages):
+def cloture_selenium(email, password, url, plages, date_str=""):
     """
     Ouvre Chrome, se connecte à Ecollaboratrice, injecte les horaires, sauvegarde.
     Retourne (True, "message") ou (False, "erreur")
@@ -113,7 +113,15 @@ def cloture_selenium(email, password, url, plages):
 
 
         # ── 3. Cliquer .cellule-horaires du jour pour ouvrir la modale ────────
-        today_str = datetime.date.today().strftime('%d/%m')   # ex: '05/03'
+        # Utiliser la date du pointage si disponible, sinon aujourd'hui
+        if date_str:
+            try:
+                dt = datetime.date.fromisoformat(date_str)
+                today_str = dt.strftime('%d/%m')
+            except Exception:
+                today_str = datetime.date.today().strftime('%d/%m')
+        else:
+            today_str = datetime.date.today().strftime('%d/%m')
 
         found = driver.execute_script(f"""
             const ts = '{today_str}';
@@ -345,6 +353,7 @@ def cloture():
     password = (data.get("password") or "").strip()
     url      = (data.get("url")      or "").strip()
     plages   = data.get("plages", [])
+    date_str = (data.get("date") or "").strip()  # date réelle du pointage YYYY-MM-DD
 
     # Validation
     if not email or not password:
@@ -360,7 +369,7 @@ def cloture():
             return jsonify({"success": False, "error": f"Plage incomplète : {p}"}), 400
 
     # Lancer la clôture
-    success, message = cloture_selenium(email, password, url, plages)
+    success, message = cloture_selenium(email, password, url, plages, date_str)
 
     if success:
         return jsonify({"success": True, "message": message})
