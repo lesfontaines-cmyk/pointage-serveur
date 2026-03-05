@@ -76,51 +76,39 @@ def cloture_selenium(email, password, url, plages):
         today_d = datetime.date.today()
         url = _re.sub(r'mois=\d+', f'mois={today_d.month:02d}', url)
         url = _re.sub(r'annee=\d+', f'annee={today_d.year}', url)
+        # ── 1b. Ouvrir domaine pour poser le cookie RGPD ─────────────────────
+        base_url = '/'.join(url.split('/')[:3])  # ex: https://drive.ecollaboratrice.com
+        driver.get(base_url)
+        time.sleep(1)
+        driver.add_cookie({'name': 'alert-rgpd', 'value': 'true', 'domain': base_url.replace('https://', '').replace('http://', '')})
+
         driver.get(url)
         time.sleep(3)
 
         # ── 2. Connexion si nécessaire ───────────────────────────────────────
         current = driver.current_url.lower()
-        if "login" in current or "account" in current or "connect" in current:
+        if 'login' in current or 'account' in current or 'connect' in current or 'auth' in current:
             try:
-                email_el = driver.find_element("css selector",
-                    "input[type='email'], input[name='Email'], input[name='login']")
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+                from selenium.webdriver.common.by import By
+                email_el = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email'], input[placeholder='Email'], input[name='Email']"))
+                )
                 email_el.clear()
                 email_el.send_keys(email)
-
-                pwd_el = driver.find_element("css selector", "input[type='password']")
+                pwd_el = driver.find_element('css selector', "input[type='password']")
                 pwd_el.clear()
                 pwd_el.send_keys(password)
-
-                btn = driver.find_element("css selector",
-                    "button[type='submit'], input[type='submit']")
-                btn.click()
+                driver.find_element('css selector', "button[type='submit']" ).click()
                 time.sleep(4)
+                # Poser le cookie RGPD après login
+                driver.add_cookie({'name': 'alert-rgpd', 'value': 'true', 'domain': base_url.replace('https://', '').replace('http://', '')})
+                driver.get(url)
+                time.sleep(3)
             except Exception as e:
                 driver.quit()
-                return False, f"Erreur de connexion : {e}"
-
-        # ── 2b. Fermer popup RGPD ────────────────────────────────────────
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.common.by import By
-        time.sleep(2)
-        try:
-            btn = WebDriverWait(driver, 8).until(
-                EC.element_to_be_clickable((By.XPATH, "//*[contains(text(),'AI COMPRIS')]"))
-            )
-            driver.execute_script('arguments[0].scrollIntoView(true);', btn)
-            driver.execute_script('arguments[0].click();', btn)
-            time.sleep(2)
-        except Exception:
-            # Fallback : supprimer overlay DOM
-            driver.execute_script(
-                "document.querySelectorAll('.modal,.modal-backdrop,[class*=modal],[class*=overlay],[class*=popup],[class*=rgpd]')"
-                ".forEach(el=>el.remove());"
-                "document.body.style.overflow='auto';"
-                "document.body.classList.remove('modal-open','overflow-hidden','no-scroll');"
-            )
-            time.sleep(1.5)
+                return False, f'Erreur de connexion : {e}'
 
 
 
